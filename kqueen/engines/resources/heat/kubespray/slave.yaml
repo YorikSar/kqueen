@@ -1,0 +1,58 @@
+heat_template_version: 2015-04-30
+
+parameters:
+  ssh_key_name:
+    type: string
+    description: Name of keypair to assign to servers
+  image:
+    type: string
+    description: Name of image to use for servers
+  flavor:
+    type: string
+    description: Flavor to use for servers
+  network:
+    type: string
+    description: ID of private network into which servers get deployed
+  name:
+    type: string
+  availability_zone:
+    type: string
+  ssh_key:
+    type: string
+  security_group:
+    type: string
+
+
+resources:
+
+  slave:
+    type: OS::Nova::Server
+    properties:
+      name: { get_param: name}
+      availability_zone: { get_param: availability_zone }
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      key_name: { get_param: ssh_key_name }
+      security_groups:
+          - { get_param: security_group }
+      networks:
+        - network: { get_param: network }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+            #cloud-config
+            ssh_authorized_keys:
+              - $KEY
+            manage_etc_hosts: true
+            package_update: true
+            packages: [python]
+          params:
+            $KEY: {get_param: ssh_key}
+
+outputs:
+  slave:
+    description: Floating IP address of server in public network
+    value:
+      hostname: { get_attr: [slave, name] }
+      ip: {get_attr: [slave, networks, { get_param: network }, 0]}
