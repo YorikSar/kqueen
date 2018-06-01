@@ -1,0 +1,77 @@
+heat_template_version: 2015-04-30
+
+parameters:
+  ssh_key_name:
+    type: string
+    description: Name of keypair to assign to servers
+  image:
+    type: string
+    description: Name of image to use for servers
+  flavor:
+    type: string
+    description: Flavor to use for servers
+  floating_network:
+    type: string
+    description: >
+      ID of public network for which floating IP addresses will be allocated
+  network:
+    type: string
+    description: ID of private network into which servers get deployed
+  subnet:
+    type: string
+  name:
+    type: string
+  availability_zone:
+    type: string
+  ssh_key:
+    type: string
+  security_group:
+    type: string
+
+
+resources:
+
+  port:
+    type: OS::Neutron::Port
+    properties:
+      network_id: { get_param: network }
+      fixed_ips:
+        - subnet_id: { get_param: subnet }
+      security_groups:
+        - { get_param: security_group }
+
+  floating_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network: { get_param: floating_network }
+      port_id: { get_resource: port }
+
+  master:
+    type: OS::Nova::Server
+    properties:
+      name: { get_param: name}
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      key_name: { get_param: ssh_key_name }
+      availability_zone: { get_param: availability_zone }
+      networks:
+          - port: { get_resource: port }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+            #cloud-config
+            ssh_authorized_keys:
+              - $KEY
+            manage_etc_hosts: true
+            package_update: true
+            packages: [python]
+          params:
+            $KEY: {get_param: ssh_key}
+
+outputs:
+  master:
+    description: Floating IP address of server in public network
+    value:
+      ip: { get_attr: [floating_ip, floating_ip_address] }
+      hostname: { get_attr: [master, name] }

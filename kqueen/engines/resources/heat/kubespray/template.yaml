@@ -1,0 +1,117 @@
+heat_template_version: 2015-04-30
+
+parameters:
+  ssh_key_name:
+    type: string
+    description: SSH key for access by user
+  image_name:
+    type: string
+  flavor:
+    type: string
+  master_count:
+    type: number
+    default: 3
+  slave_count:
+    type: number
+    default: 1
+  floating_network:
+    type: string
+    default: public
+  dns_nameservers:
+    type: comma_delimited_list
+    default: 1.0.0.1,8.8.8.8
+  availability_zone:
+    type: string
+    default: nova
+  ssh_key:
+    type: string
+    description: SSH key for access by kqueen and ansible
+
+
+resources:
+
+  router:
+    type: OS::Neutron::Router
+    properties:
+      admin_state_up: true
+      external_gateway_info: { "network": { get_param: floating_network }}
+      name:
+        list_join: ["-", [{get_param: 'OS::stack_name'}, router]]
+
+  router_interface:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: { get_resource: router }
+      subnet_id: { get_resource: subnet }
+
+  network:
+    type: OS::Neutron::Net
+    properties:
+      admin_state_up: true
+      name:
+        list_join: ["-", [{get_param: 'OS::stack_name'}, network]]
+
+  subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      network_id: { get_resource: network }
+      cidr: 10.1.0.0/16
+      gateway_ip: 10.1.0.1
+      enable_dhcp: true
+      dns_nameservers: { get_param: dns_nameservers }
+      name:
+        list_join: ["-", [{get_param: 'OS::stack_name'}, net]]
+
+  security_group:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      name:
+        list_join: ["-", [{get_param: 'OS::stack_name'}, sg]]
+      rules:
+        - direction: egress
+        - direction: ingress
+
+  masters:
+    type: OS::Heat::ResourceGroup
+    depends_on: [router, router_interface, network, subnet, security_group]
+    properties:
+      count: { get_param: master_count }
+      resource_def:
+        type: master.yaml
+        properties:
+          name:
+            list_join: ["-", [{get_param: 'OS::stack_name'}, master-%index%]]
+          availability_zone: { get_param: availability_zone }
+          ssh_key_name: { get_param: ssh_key_name }
+          image: { get_param: image_name }
+          flavor: { get_param: flavor }
+          network: { get_resource: network }
+          subnet: { get_resource: subnet }
+          floating_network: { get_param: floating_network }
+          ssh_key: { get_param: ssh_key }
+          security_group: { get_resource: security_group }
+
+  slaves:
+    type: OS::Heat::ResourceGroup
+    depends_on: [router, router_interface, network, subnet, security_group]
+    properties:
+      count: { get_param: slave_count }
+      resource_def:
+        type: slave.yaml
+        properties:
+          name:
+            list_join: ["-", [{get_param: 'OS::stack_name'}, slave-%index%]]
+          availability_zone: { get_param: availability_zone }
+          ssh_key_name: { get_param: ssh_key_name }
+          image: { get_param: image_name }
+          flavor: { get_param: flavor }
+          network: { get_resource: network }
+          ssh_key: { get_param: ssh_key }
+          security_group: { get_resource: security_group }
+
+outputs:
+  masters:
+    value: { get_attr: [masters, master]}
+  slaves:
+    value: { get_attr: [slaves, slave]}
+
