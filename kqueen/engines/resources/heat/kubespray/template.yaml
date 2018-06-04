@@ -97,7 +97,7 @@ resources:
     properties:
       count: { get_param: slave_count }
       resource_def:
-        type: slave.yaml
+        type: master.yaml
         properties:
           name:
             list_join: ["-", [{get_param: 'OS::stack_name'}, slave-%index%]]
@@ -106,6 +106,8 @@ resources:
           image: { get_param: image_name }
           flavor: { get_param: flavor }
           network: { get_resource: network }
+          subnet: { get_resource: subnet }
+          floating_network: { get_param: floating_network }
           ssh_key: { get_param: ssh_key }
           security_group: { get_resource: security_group }
 
@@ -113,5 +115,5 @@ outputs:
   masters:
     value: { get_attr: [masters, master]}
   slaves:
-    value: { get_attr: [slaves, slave]}
+    value: { get_attr: [slaves, master]}
 
