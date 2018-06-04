@@ -55,7 +55,6 @@ setup(
         'azure-mgmt-containerservice',
     ],
     setup_requires=[
-        'pytest-runner',
     ],
     tests_require=test_require,
     extras_require={
