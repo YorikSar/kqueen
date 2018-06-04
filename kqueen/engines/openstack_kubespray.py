@@ -90,9 +90,9 @@ def generate_inventory(outputs, ssh_username):
             "ansible_become": True,
         }
         conf["kube-node"]["hosts"][slave["hostname"]] = None
-    ssh_args_fmt = ("-o ProxyCommand=\"ssh {}@{} "
-                    "-o UserKnownHostsFile=/dev/null "
-                    "-o StrictHostKeyChecking=no -W %h:%p\" " +
+    ssh_args_fmt = ("-o ProxyCommand=\"ssh {}@{} " +
+                    ssh_common_args +
+                    " -W %h:%p\" " +
                     ssh_common_args)
     ssh_args = ssh_args_fmt.format(ssh_username, outputs["masters"][0]["ip"])
     conf["kube-node"]["vars"] = {"ansible_ssh_common_args": ssh_args}
